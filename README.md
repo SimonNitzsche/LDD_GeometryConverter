@@ -7,4 +7,4 @@ This program converts LDD's .g files to .obj files.
 Drop the .g file onto the converter
 
 ## Download
-You can download it [here](releases/).
+You can download it [here](../../releases/).
