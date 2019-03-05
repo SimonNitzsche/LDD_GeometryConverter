@@ -55,8 +55,8 @@ void GenerateOBJTriangles(std::string * text, GeometryFile * geoFile) {
 		*text
 			+="f "
 			+ std::to_string(*reinterpret_cast<std::uint32_t*>(triangles))   + " "
-			+ std::to_string(*reinterpret_cast<std::uint32_t*>(++triangles)) + " "
-			+ std::to_string(*reinterpret_cast<std::uint32_t*>(++triangles)) + "\n";
+			+ std::to_string(*reinterpret_cast<std::uint32_t*>(triangles + 1)) + " "
+			+ std::to_string(*reinterpret_cast<std::uint32_t*>(triangles + 2)) + "\n";
 	}
 }
 
