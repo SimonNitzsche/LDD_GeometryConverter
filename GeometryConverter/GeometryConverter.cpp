@@ -5,6 +5,7 @@
 #include <fstream>
 #include <thread>
 #include <vector>
+#include <filesystem>
 #include "GeometryFile.hpp"
 #include "OBJHelper.hpp"
 #include "TimerBenchFromStackOverflow.hpp"
@@ -22,7 +23,7 @@ int main(int argc, char ** argv){
 		GeometryFile testGeo(argv[1]);
 		if (*testGeo.magic == 0x54414247) {
 			// GBAT
-			throw std::string("GBAT is unsupported right now.");
+			// throw std::string("GBAT is unsupported right now.");
 			ConvertMultiple(argv[1]);
 		}
 		else {
@@ -111,7 +112,7 @@ void ConvertMultiple(const char * gbatFile) {
 	std::string outDir;
 	std::vector<std::string> fileList;
 	std::uint32_t threadedFileIndex = 0;
-	std::uint32_t localFileIndex = -1;
+	std::uint32_t localFileIndex = 0;
 
 	while (std::getline(gbatFileStream, buffer)) {
 		if (index < 3) {
@@ -127,11 +128,22 @@ void ConvertMultiple(const char * gbatFile) {
 		}
 		else {
 			fileList.push_back(buffer);
+			
+			std::string fstr(outDir + '\\' + buffer);
+			const char * fileOut = fstr.c_str();
+			const char * path = strrchr(fileOut, '\\');
+			std::string pstr(fileOut, path);
+			std::wstring wname = std::wstring(pstr.begin(), pstr.end());
+			struct stat info;
+			if(stat(pstr.c_str(), &info) != 0)
+				system(std::string("mkdir \""+pstr+"\" >> NUL").c_str());
 		}
 		++index;
 	}
 
 	minimalLog = true;
+
+	std::uint64_t totalMsStart = GetTimeMs64();
 
 	std::thread multiThread([](std::string * inDir, std::string * outDir, std::vector<std::string> * fileList, std::uint32_t * threadedFileIndex) {
 		for (*threadedFileIndex = 0; *threadedFileIndex < fileList->size(); ++*threadedFileIndex) {
@@ -144,15 +156,23 @@ void ConvertMultiple(const char * gbatFile) {
 		}
 
 	}, &inDir, &outDir, &fileList, &threadedFileIndex);
-	std::thread loggingThread([](std::uint32_t threadedFileIndex, std::uint32_t * localFileIndex, std::vector<std::string>* fileList) {
-		while (threadedFileIndex < fileList->size()) {
+
+	std::thread loggingThread([](std::uint32_t * threadedFileIndexPtr, std::uint32_t * localFileIndex, std::vector<std::string>* fileList) {
+		std::uint32_t threadedFileIndex;
+		std::uint64_t lastTs = GetTimeMs64();
+		while ((threadedFileIndex = *threadedFileIndexPtr) < fileList->size()) {
 			while (*localFileIndex < threadedFileIndex) {
-				std::cout << (*fileList)[++*localFileIndex] << std::endl;
+				std::uint64_t newTs = GetTimeMs64();
+				std::cout << (*fileList)[++(*localFileIndex)] << " in " << (newTs-lastTs) << "ms." << std::endl;
+				lastTs = newTs;
 			}
-			Sleep(30);
+			Sleep(10);
 		}
-	}, threadedFileIndex, &localFileIndex, &fileList);
+	}, &threadedFileIndex, &localFileIndex, &fileList);
 
 	multiThread.join();
+	std::uint64_t totalMsStop = GetTimeMs64();
 	loggingThread.join();
+
+	std::cout << "Took a total of " << (totalMsStop - totalMsStart) << "ms ( " << ((totalMsStop - totalMsStart)*0.001) << "s )\n";
 }

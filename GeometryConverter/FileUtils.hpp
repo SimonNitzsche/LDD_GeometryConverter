@@ -9,7 +9,7 @@
 namespace FileUtils {
 	inline std::unique_ptr<unsigned char[]> ReadFileCompletely(std::string filename, uint32_t * fsize = 0) {
 		FILE * file;
-		fopen_s(&file, filename.c_str(), "r+b");
+		fopen_s(&file, filename.c_str(), "rb");
 		if (file == nullptr) {
 			throw std::string("Couldn't load file \"" + filename + "\"");
 		}
@@ -17,7 +17,7 @@ namespace FileUtils {
 		long int size = ftell(file);
 		fclose(file);
 		// Reading data to array of unsigned chars
-		fopen_s(&file, filename.c_str(), "r+b");
+		fopen_s(&file, filename.c_str(), "rb");
 		std::unique_ptr<unsigned char[]> data = std::make_unique<unsigned char[]>(size);
 		int bytes_read = fread(data.get(), sizeof(unsigned char), size, file);
 
