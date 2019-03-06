@@ -8,7 +8,7 @@
 GeometryFile::GeometryFile(const char * filepath) {
 	if (filepath == nullptr) filepath = "";
 
-	this->fileData = FileUtils::ReadFileCompletely(std::string(filepath));
+	this->fileData = FileUtils::ReadFileCompletely(std::string(filepath), &this->fileSize);
 
 	this->magic = reinterpret_cast<std::uint32_t*>(fileData.get() + 0);
 	this->vertexCount = reinterpret_cast<std::uint32_t*>(fileData.get() + 4);

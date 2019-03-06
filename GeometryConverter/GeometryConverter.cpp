@@ -4,13 +4,16 @@
 #include <sstream>
 #include <fstream>
 #include <thread>
+#include <vector>
 #include "GeometryFile.hpp"
 #include "OBJHelper.hpp"
 #include "TimerBenchFromStackOverflow.hpp"
 
 bool noPause = false;
+bool minimalLog = false;
 
 void ConvertSingle(const char * fileIn, const char* fileOut);
+void ConvertMultiple(const char* gbatFile);
 
 int main(int argc, char ** argv){
 
@@ -20,6 +23,7 @@ int main(int argc, char ** argv){
 		if (*testGeo.magic == 0x54414247) {
 			// GBAT
 			throw std::string("GBAT is unsupported right now.");
+			ConvertMultiple(argv[1]);
 		}
 		else {
 			// Simply Convert
@@ -89,8 +93,66 @@ void ConvertSingle(const char * fileIn, const char* fileOut) {
 	timeA = timeB + timeC + timeD;
 
 	// Log
-	std::cout << "Took a total of " << timeA << "ms.\n";
-	std::cout << "Reading .g file: " << timeB << "ms.\n";
-	std::cout << "Generating .obj file: " << timeC << "ms.\n";
-	std::cout << "Saving .obj file: " << timeD << "ms.\n";
+	if (!minimalLog) {
+		std::cout << "Took a total of " << timeA << "ms.\n";
+		std::cout << "Reading .g file: " << timeB << "ms.\n";
+		std::cout << "Generating .obj file: " << timeC << "ms.\n";
+		std::cout << "Saving .obj file: " << timeD << "ms.\n";
+	}
+}
+
+void ConvertMultiple(const char * gbatFile) {
+	// Read GBAT
+	std::ifstream gbatFileStream(gbatFile);
+	int index = 0;
+	std::string buffer;
+
+	std::string inDir;
+	std::string outDir;
+	std::vector<std::string> fileList;
+	std::uint32_t threadedFileIndex = 0;
+	std::uint32_t localFileIndex = -1;
+
+	while (std::getline(gbatFileStream, buffer)) {
+		if (index < 3) {
+			if (index == 0) {
+				if (buffer != "GBAT")
+					throw std::string("This is not a valid GBAT file (Invalid magic).");
+			}
+			else if (index == 1) {
+				inDir = buffer;
+			}
+			else
+				outDir = buffer;
+		}
+		else {
+			fileList.push_back(buffer);
+		}
+		++index;
+	}
+
+	minimalLog = true;
+
+	std::thread multiThread([](std::string * inDir, std::string * outDir, std::vector<std::string> * fileList, std::uint32_t * threadedFileIndex) {
+		for (*threadedFileIndex = 0; *threadedFileIndex < fileList->size(); ++*threadedFileIndex) {
+			try {
+				ConvertSingle((std::string(*inDir) + "\\" + (*fileList)[*threadedFileIndex]).c_str(), (std::string(*outDir) + "\\" + (*fileList)[*threadedFileIndex]).c_str());
+			}
+			catch (std::string ex) {
+				std::cout << ex << std::endl;
+			}
+		}
+
+	}, &inDir, &outDir, &fileList, &threadedFileIndex);
+	std::thread loggingThread([](std::uint32_t threadedFileIndex, std::uint32_t * localFileIndex, std::vector<std::string>* fileList) {
+		while (threadedFileIndex < fileList->size()) {
+			while (*localFileIndex < threadedFileIndex) {
+				std::cout << (*fileList)[++*localFileIndex] << std::endl;
+			}
+			Sleep(30);
+		}
+	}, threadedFileIndex, &localFileIndex, &fileList);
+
+	multiThread.join();
+	loggingThread.join();
 }

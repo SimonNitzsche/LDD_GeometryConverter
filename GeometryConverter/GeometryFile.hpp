@@ -29,6 +29,7 @@ public:
 	std::uint32_t * triangles;
 
 public:
+	std::uint32_t fileSize;
 	GeometryFile(const char* filepath);
 	~GeometryFile();
 };
