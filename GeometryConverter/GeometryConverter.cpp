@@ -13,21 +13,23 @@
 bool noPause = false;
 bool minimalLog = false;
 
+void processArgs(int argc, char ** argv);
 void ConvertSingle(const char * fileIn, const char* fileOut);
 void ConvertMultiple(const char* gbatFile);
 
 int main(int argc, char ** argv){
-
 	try {
 		// First open the file to check if it's a GBAT or 10GB file
 		GeometryFile testGeo(argv[1]);
 		if (*testGeo.magic == 0x54414247) {
 			// GBAT
-			// throw std::string("GBAT is unsupported right now.");
+			minimalLog = true;
+			processArgs(argc, argv);
 			ConvertMultiple(argv[1]);
 		}
 		else {
 			// Simply Convert
+			processArgs(argc, argv);
 			ConvertSingle(argv[1], argv[1]);
 		}
 
@@ -41,9 +43,28 @@ int main(int argc, char ** argv){
 		system("pause");
 }
 
+void processArgs(int argc, char** argv) {
+	for (int i = 2; i < argc; ++i) {
+		if (argv[i] == "+minimalLog") {
+			minimalLog = true;
+		}
+		else if (argv[i] == "-minimalLog") {
+			minimalLog = false;
+		}
+		else if (argv[i] == "+noPause") {
+			noPause = true;
+		}
+		else if (argv[i] == "-noPause") {
+			noPause = false;
+		}
+	}
+}
 
 void ConvertSingle(const char * fileIn, const char* fileOut) {
-	std::uint64_t timeA = GetTimeMs64();
+	std::uint64_t timeA, timeB, timeC, timeD;
+	
+	if(!minimalLog)
+		timeA = GetTimeMs64();
 
 	// Load .g file
 	GeometryFile geoFile(fileIn);
@@ -52,7 +73,8 @@ void ConvertSingle(const char * fileIn, const char* fileOut) {
 		throw std::string("This is not a valid .g file (invalid magic).");
 	}
 
-	std::uint64_t timeB = GetTimeMs64();
+	if (!minimalLog)
+		timeB = GetTimeMs64();
 
 	// Generate .obj file
 	std::string verteciesStream;
@@ -73,28 +95,30 @@ void ConvertSingle(const char * fileIn, const char* fileOut) {
 	normalsThread.join();
 	trianglesThread.join();
 
-	std::uint64_t timeC = GetTimeMs64();
+	if (!minimalLog)
+		timeC = GetTimeMs64();
 
 	// Save .obj file
 	std::ofstream outFile;
-	outFile.open((std::string(fileOut) + ".obj").c_str());
-	outFile
-		<< verteciesStream
+	outFile.open((std::string(fileOut) + ".obj").c_str(), std::ofstream::binary);
+	std::string outData = (verteciesStream
 		+ textureStream
 		+ normalsStream
-		+ trianglesStream;
+		+ trianglesStream);
+	outFile.write(outData.c_str(), outData.size());
 	outFile.close();
 
-	std::uint64_t timeD = GetTimeMs64();
+	if (!minimalLog)
+		timeD = GetTimeMs64();
 
-	// Calculate benchmark
-	timeD = timeD - timeC;
-	timeC = timeC - timeB;
-	timeB = timeB - timeA;
-	timeA = timeB + timeC + timeD;
-
-	// Log
 	if (!minimalLog) {
+		// Calculate benchmark
+		timeD = timeD - timeC;
+		timeC = timeC - timeB;
+		timeB = timeB - timeA;
+		timeA = timeB + timeC + timeD;
+
+		// Log
 		std::cout << "Took a total of " << timeA << "ms.\n";
 		std::cout << "Reading .g file: " << timeB << "ms.\n";
 		std::cout << "Generating .obj file: " << timeC << "ms.\n";
@@ -129,22 +153,24 @@ void ConvertMultiple(const char * gbatFile) {
 		else {
 			fileList.push_back(buffer);
 			
+			// Get dirname
 			std::string fstr(outDir + '\\' + buffer);
 			const char * fileOut = fstr.c_str();
 			const char * path = strrchr(fileOut, '\\');
 			std::string pstr(fileOut, path);
 			std::wstring wname = std::wstring(pstr.begin(), pstr.end());
 			struct stat info;
+
+			// Make dir
 			if(stat(pstr.c_str(), &info) != 0)
 				system(std::string("mkdir \""+pstr+"\" >> NUL").c_str());
 		}
 		++index;
 	}
 
-	minimalLog = true;
-
 	std::uint64_t totalMsStart = GetTimeMs64();
 
+	// Make thread to do the stuff.
 	std::thread multiThread([](std::string * inDir, std::string * outDir, std::vector<std::string> * fileList, std::uint32_t * threadedFileIndex) {
 		for (*threadedFileIndex = 0; *threadedFileIndex < fileList->size(); ++*threadedFileIndex) {
 			try {
@@ -156,20 +182,27 @@ void ConvertMultiple(const char * gbatFile) {
 		}
 
 	}, &inDir, &outDir, &fileList, &threadedFileIndex);
+	 
 
+	// Make thread to log the stuff.
 	std::thread loggingThread([](std::uint32_t * threadedFileIndexPtr, std::uint32_t * localFileIndex, std::vector<std::string>* fileList) {
 		std::uint32_t threadedFileIndex;
 		std::uint64_t lastTs = GetTimeMs64();
-		while ((threadedFileIndex = *threadedFileIndexPtr) < fileList->size()) {
-			while (*localFileIndex < threadedFileIndex) {
+
+		// When there are files converted that haven't been processed
+		while (*localFileIndex < fileList->size()) {
+			// and haven't been logged
+			while (*localFileIndex < (threadedFileIndex = *threadedFileIndexPtr)) {
+				// log them.
 				std::uint64_t newTs = GetTimeMs64();
 				std::cout << (*fileList)[++(*localFileIndex)] << " in " << (newTs-lastTs) << "ms." << std::endl;
 				lastTs = newTs;
 			}
-			Sleep(10);
+			Sleep(1);
 		}
 	}, &threadedFileIndex, &localFileIndex, &fileList);
 
+	// Wait for work to be done.
 	multiThread.join();
 	std::uint64_t totalMsStop = GetTimeMs64();
 	loggingThread.join();
