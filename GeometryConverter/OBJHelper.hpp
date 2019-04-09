@@ -5,7 +5,7 @@
 #include <sstream>
 #include "GeometryFile.hpp"
 
-void GenerateOBJVertecies(std::string * text, GeometryFile * geoFile) {
+inline void GenerateOBJVertecies(std::string * text, GeometryFile * geoFile) {
 	// Vertecies
 	std::uint32_t vertexCount = *geoFile->vertexCount;
 	for (int i = 0; i < vertexCount; ++i) {
@@ -18,7 +18,7 @@ void GenerateOBJVertecies(std::string * text, GeometryFile * geoFile) {
 	}
 }
 
-void GenerateOBJTextureUV(std::string * text, GeometryFile * geoFile) {
+inline void GenerateOBJTextureUV(std::string * text, GeometryFile * geoFile) {
 	// Texture UV
 	if (geoFile->textureCoordinates != nullptr) {
 		std::uint32_t vertexCount = *geoFile->vertexCount;
@@ -32,7 +32,7 @@ void GenerateOBJTextureUV(std::string * text, GeometryFile * geoFile) {
 	}
 }
 
-void GenerateOBJNormals(std::string * text, GeometryFile * geoFile) {
+inline void GenerateOBJNormals(std::string * text, GeometryFile * geoFile) {
 	// Normals
 	if (geoFile->vertexNormals != nullptr) {
 		std::uint32_t vertexCount = *geoFile->vertexCount;
@@ -47,7 +47,7 @@ void GenerateOBJNormals(std::string * text, GeometryFile * geoFile) {
 	}
 }
 
-void GenerateOBJTriangles(std::string * text, GeometryFile * geoFile) {
+inline void GenerateOBJTriangles(std::string * text, GeometryFile * geoFile) {
 	// Combine
 	std::uint32_t indexCount = *geoFile->indexCount;
 	for (int i = 0; i < indexCount; i += 3) {
