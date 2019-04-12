@@ -60,11 +60,19 @@ void processArgs(int argc, char** argv) {
 	}
 }
 
+std::uint64_t emptyInt() {
+	return 0;
+}
+
 void ConvertSingle(const char * fileIn, const char* fileOut) {
 	std::uint64_t timeA, timeB, timeC, timeD;
 	
-	if(!minimalLog)
-		timeA = GetTimeMs64();
+	std::uint64_t(*_GetTimeMs64)() = emptyInt;
+
+	if (!minimalLog)
+		_GetTimeMs64 = GetTimeMs64;
+
+	timeA = _GetTimeMs64();
 
 	// Load .g file
 	GeometryFile geoFile(fileIn);
@@ -73,8 +81,7 @@ void ConvertSingle(const char * fileIn, const char* fileOut) {
 		throw std::string("This is not a valid .g file (invalid magic).");
 	}
 
-	if (!minimalLog)
-		timeB = GetTimeMs64();
+	timeB = _GetTimeMs64();
 
 	// Generate .obj file
 	std::string verteciesStream;
@@ -95,8 +102,7 @@ void ConvertSingle(const char * fileIn, const char* fileOut) {
 	normalsThread.join();
 	trianglesThread.join();
 
-	if (!minimalLog)
-		timeC = GetTimeMs64();
+	timeC = _GetTimeMs64();
 
 	// Save .obj file
 	std::ofstream outFile;
@@ -108,8 +114,7 @@ void ConvertSingle(const char * fileIn, const char* fileOut) {
 	outFile.write(outData.c_str(), outData.size());
 	outFile.close();
 
-	if (!minimalLog)
-		timeD = GetTimeMs64();
+	timeD = _GetTimeMs64();
 
 	if (!minimalLog) {
 		// Calculate benchmark
@@ -172,13 +177,13 @@ void ConvertMultiple(const char * gbatFile) {
 
 	// Make thread to do the stuff.
 	std::thread multiThread([](std::string * inDir, std::string * outDir, std::vector<std::string> * fileList, std::uint32_t * threadedFileIndex) {
-		for (*threadedFileIndex = 0; *threadedFileIndex < fileList->size(); ++*threadedFileIndex) {
-			try {
+		try {
+			for (*threadedFileIndex = 0; *threadedFileIndex < fileList->size(); ++*threadedFileIndex) {
 				ConvertSingle((std::string(*inDir) + "\\" + (*fileList)[*threadedFileIndex]).c_str(), (std::string(*outDir) + "\\" + (*fileList)[*threadedFileIndex]).c_str());
 			}
-			catch (std::string ex) {
-				std::cout << ex << std::endl;
-			}
+		}
+		catch (std::string ex) {
+			std::cout << ex << std::endl;
 		}
 
 	}, &inDir, &outDir, &fileList, &threadedFileIndex);
@@ -195,7 +200,7 @@ void ConvertMultiple(const char * gbatFile) {
 			while (*localFileIndex < (threadedFileIndex = *threadedFileIndexPtr)) {
 				// log them.
 				std::uint64_t newTs = GetTimeMs64();
-				std::cout << (*fileList)[++(*localFileIndex)] << " in " << (newTs-lastTs) << "ms." << std::endl;
+				std::cout << (*fileList)[(*localFileIndex)++] << " in " << (newTs-lastTs) << "ms." << std::endl;
 				lastTs = newTs;
 			}
 			Sleep(1);
